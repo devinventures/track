@@ -15,6 +15,20 @@ import { FiBarChart2, FiUsers, FiFileText, FiSettings, FiHelpCircle, FiLogOut, F
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
+// Define ActivityLog type
+type ActivityLog = {
+  id?: string;
+  user_id: string;
+  movement_type: string;
+  duration: number;
+  start_time: string;
+  end_time?: string;
+  confidence?: number;
+  created_at?: string;
+  features?: any;
+  motion_data?: any;
+};
+
 export default function DashboardPage() {
   const [user, setUser] = useState({ name: "Noah Smith", email: "noah@email.com", avatar: "https://randomuser.me/api/portraits/men/32.jpg" });
   const [stats, setStats] = useState([
@@ -22,24 +36,16 @@ export default function DashboardPage() {
     { label: "Productive", value: 0, color: "bg-indigo-100", icon: "✅", text: "Team total" },
   ]);
   const [loading, setLoading] = useState(true);
-  const [chartData, setChartData] = useState<any>(null);
-  const [loadingChart, setLoadingChart] = useState(true);
-  const [kpis, setKpis] = useState<any>(null);
-  const [analytics, setAnalytics] = useState<any[]>([]);
-  const [growth, setGrowth] = useState<any[]>([]);
-  const [activity, setActivity] = useState<any[]>([]);
-  const [activityLogs, setActivityLogs] = useState<any[]>([]);
-  const [selectedUser, setSelectedUser] = useState<string | undefined>(undefined);
-  const [userIds, setUserIds] = useState<string[]>([]);
-  const [laborChartData, setLaborChartData] = useState<any>(null);
-  const [laborStats, setLaborStats] = useState({
-    manual: 0,
-    shelving: 0,
-    packaging: 0,
-  });
+  const [chartData, setChartData] = useState<any>({ labels: [], datasets: [] });
+  const [analytics, setAnalytics] = useState<ActivityLog[]>([]);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [laborChartData, setLaborChartData] = useState<any>({ labels: [], datasets: [] });
+  const [laborStats, setLaborStats] = useState<{ manual: number; shelving: number; packaging: number }>({ manual: 0, shelving: 0, packaging: 0 });
   const [productivityFilter, setProductivityFilter] = useState<"all" | "today">("today");
   const [checkInTime, setCheckInTime] = useState<string | null>(null);
   const [shiftEndTime, setShiftEndTime] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<string | undefined>(undefined);
+  const [userIds, setUserIds] = useState<string[]>([]);
 
   useEffect(() => {
     async function fetchData() {
@@ -53,7 +59,7 @@ export default function DashboardPage() {
       };
       const userDayAgg: UserDayAgg = {};
 
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("activity_logs")
         .select("user_id, movement_type, duration, start_time, end_time");
 
@@ -157,56 +163,24 @@ export default function DashboardPage() {
   }, [selectedUser, productivityFilter]);
 
   useEffect(() => {
-    async function fetchKpis() {
-      const { data, error } = await supabase.from("kpis").select("*").single();
-      if (!error) setKpis(data);
-    }
-    fetchKpis();
-  }, []);
-
-  useEffect(() => {
     async function fetchAnalytics() {
-      const { data, error } = await supabase.from("analytics").select("*");
-      if (!error) setAnalytics(data ?? []);
+      const { data } = await supabase.from("analytics").select("*");
+      if (data) setAnalytics(data);
     }
     fetchAnalytics();
   }, []);
 
   useEffect(() => {
-    async function fetchGrowth() {
-      const { data, error } = await supabase.from("growth").select("*");
-      if (!error) setGrowth(data ?? []);
-    }
-    fetchGrowth();
-  }, []);
-
-  useEffect(() => {
-    async function fetchActivity() {
-      const { data, error } = await supabase.from("activity").select("*");
-      if (!error) setActivity(data ?? []);
-    }
-    fetchActivity();
-  }, []);
-
-  useEffect(() => {
     async function fetchActivityLogs() {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("activity_logs")
         .select("*")
         .order("start_time", { ascending: false })
         .limit(10);
-      if (!error) setActivityLogs(data ?? []);
+      if (data) setActivityLogs(data);
     }
     fetchActivityLogs();
   }, []);
-
-  const analyticsData = {
-    labels: analytics.map(a => a.label),
-    datasets: [{
-      data: analytics.map(a => a.value),
-      backgroundColor: ["#a5b4fc", "#6ee7b7", "#fca5a5"],
-    }]
-  };
 
   return (
     <div className="min-h-screen flex bg-gray-50">
@@ -255,6 +229,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="User" className="w-10 h-10 rounded-full border" />
             <div className="flex flex-col">
               <span className="font-semibold text-gray-700">Team Glistco</span>
@@ -372,21 +347,6 @@ export default function DashboardPage() {
               )}
             </div>
           </div>
-          {/* Manual Labor, Shelving, Packaging Stat Cards */}
-          <div className="flex flex-col md:flex-row gap-6 mb-8 mt-12">
-            <div className="flex-1 rounded-2xl shadow-lg p-8 flex flex-col items-start bg-blue-100 border border-gray-100">
-              <span className="text-gray-700 font-bold text-lg">Manual Labor</span>
-              <span className="text-4xl font-extrabold mt-1 text-gray-900">{laborStats.manual.toFixed(2)} min</span>
-            </div>
-            <div className="flex-1 rounded-2xl shadow-lg p-8 flex flex-col items-start bg-green-100 border border-gray-100">
-              <span className="text-gray-700 font-bold text-lg">Shelving</span>
-              <span className="text-4xl font-extrabold mt-1 text-gray-900">{laborStats.shelving.toFixed(2)} min</span>
-            </div>
-            <div className="flex-1 rounded-2xl shadow-lg p-8 flex flex-col items-start bg-yellow-100 border border-gray-100">
-              <span className="text-gray-700 font-bold text-lg">Packaging</span>
-              <span className="text-4xl font-extrabold mt-1 text-gray-900">{laborStats.packaging.toFixed(2)} min</span>
-            </div>
-          </div>
           {/* Manual Labor, Shelving, Packaging Chart */}
           <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100 mt-12">
             <h2 className="text-2xl font-bold mb-6 text-gray-800">Manual Labor, Shelving & Packaging (Minutes per Day)</h2>
@@ -449,7 +409,7 @@ export default function DashboardPage() {
                       <td className="py-2 px-3">{log.user_id}</td>
                       <td className="py-2 px-3">{log.movement_type}</td>
                       <td className="py-2 px-3">{log.start_time ? new Date(log.start_time).toLocaleString() : ""}</td>
-                      <td className="py-2 px-3">{log.end_time ? new Date(log.end_time).toLocaleString() : ""}</td>
+                      <td className="py-2 px-3">{log.end_time ? new Date(log.end_time ?? '').toLocaleString() : ""}</td>
                       <td className="py-2 px-3">{log.duration}</td>
                       <td className="py-2 px-3">{log.confidence}</td>
                       <td className="py-2 px-3">{log.created_at ? new Date(log.created_at).toLocaleString() : ""}</td>
