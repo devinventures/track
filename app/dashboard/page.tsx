@@ -10,6 +10,7 @@ import {
   BarElement,
   Tooltip,
   Legend,
+  ChartData,
 } from "chart.js";
 import { FiBarChart2, FiUsers, FiFileText, FiSettings, FiHelpCircle, FiLogOut, FiTrendingUp, FiSearch } from "react-icons/fi";
 
@@ -38,8 +39,8 @@ export default function DashboardPage() {
   ]);
   const [loading, setLoading] = useState(true);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
-  const [laborChartData, setLaborChartData] = useState<ChartDataType>({ labels: [], datasets: [] });
-  const [chartData, setChartData] = useState<ChartDataType>({ labels: [], datasets: [] });
+  const [laborChartData, setLaborChartData] = useState<ChartData<'bar', number[], string>>({ labels: [], datasets: [] });
+  const [chartData, setChartData] = useState<ChartData<'bar', number[], string>>({ labels: [], datasets: [] });
   const [productivityFilter, setProductivityFilter] = useState<"all" | "today">("today");
   const [checkInTime, setCheckInTime] = useState<string | null>(null);
   const [shiftEndTime, setShiftEndTime] = useState<string | null>(null);
