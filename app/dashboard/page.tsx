@@ -1,3 +1,4 @@
+// Redeploy trigger: trivial edit for Cloudflare Pages
 "use client";
 
 import { useEffect, useState } from "react";
