@@ -30,8 +30,6 @@ type ActivityLog = {
   motion_data?: any;
 };
 
-type ChartDataType = { labels: string[]; datasets: any[] };
-
 export default function DashboardPage() {
   const [stats, setStats] = useState([
     { label: "Idle", value: 0, color: "bg-yellow-100", icon: "⏰", text: "Team total" },
@@ -39,7 +37,7 @@ export default function DashboardPage() {
   ]);
   const [loading, setLoading] = useState(true);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
-  const [laborChartData, setLaborChartData] = useState<ChartData<'bar', number[], string>>({ labels: [], datasets: [] });
+  const [laborChartData] = useState<ChartData<'bar', number[], string>>({ labels: [], datasets: [] });
   const [chartData, setChartData] = useState<ChartData<'bar', number[], string>>({ labels: [], datasets: [] });
   const [productivityFilter, setProductivityFilter] = useState<"all" | "today">("today");
   const [checkInTime, setCheckInTime] = useState<string | null>(null);
