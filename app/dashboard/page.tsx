@@ -29,18 +29,17 @@ type ActivityLog = {
   motion_data?: any;
 };
 
+type ChartDataType = { labels: string[]; datasets: any[] };
+
 export default function DashboardPage() {
-  const [user, setUser] = useState({ name: "Noah Smith", email: "noah@email.com", avatar: "https://randomuser.me/api/portraits/men/32.jpg" });
   const [stats, setStats] = useState([
     { label: "Idle", value: 0, color: "bg-yellow-100", icon: "⏰", text: "Team total" },
     { label: "Productive", value: 0, color: "bg-indigo-100", icon: "✅", text: "Team total" },
   ]);
   const [loading, setLoading] = useState(true);
-  const [chartData, setChartData] = useState<any>({ labels: [], datasets: [] });
-  const [analytics, setAnalytics] = useState<ActivityLog[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
-  const [laborChartData, setLaborChartData] = useState<any>({ labels: [], datasets: [] });
-  const [laborStats, setLaborStats] = useState<{ manual: number; shelving: number; packaging: number }>({ manual: 0, shelving: 0, packaging: 0 });
+  const [laborChartData, setLaborChartData] = useState<ChartDataType>({ labels: [], datasets: [] });
+  const [chartData, setChartData] = useState<ChartDataType>({ labels: [], datasets: [] });
   const [productivityFilter, setProductivityFilter] = useState<"all" | "today">("today");
   const [checkInTime, setCheckInTime] = useState<string | null>(null);
   const [shiftEndTime, setShiftEndTime] = useState<string | null>(null);
@@ -161,14 +160,6 @@ export default function DashboardPage() {
     }
     fetchData();
   }, [selectedUser, productivityFilter]);
-
-  useEffect(() => {
-    async function fetchAnalytics() {
-      const { data } = await supabase.from("analytics").select("*");
-      if (data) setAnalytics(data);
-    }
-    fetchAnalytics();
-  }, []);
 
   useEffect(() => {
     async function fetchActivityLogs() {
@@ -305,7 +296,7 @@ export default function DashboardPage() {
           <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100 mt-8">
             <h2 className="text-2xl font-bold mb-6 text-gray-800">Productive vs Idle Time</h2>
             <div className="h-80 flex items-center justify-center text-gray-400">
-              {loading || !chartData ? (
+              {loading || !chartData || !chartData.datasets ? (
                 "[Loading Chart...]"
               ) : (
                 <Bar
@@ -351,7 +342,7 @@ export default function DashboardPage() {
           <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100 mt-12">
             <h2 className="text-2xl font-bold mb-6 text-gray-800">Manual Labor, Shelving & Packaging (Minutes per Day)</h2>
             <div className="h-80 flex items-center justify-center text-gray-400">
-              {laborChartData ? (
+              {laborChartData && laborChartData.datasets ? (
                 <Bar
                   data={laborChartData}
                   options={{
