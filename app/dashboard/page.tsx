@@ -115,8 +115,8 @@ export default function DashboardPage() {
 
       setChartData({
         labels: allDates.map(d => d.slice(5)), // MM-DD for display
-        datasets: [
-          {
+  datasets: [
+    {
             label: "Productive Time",
             data: dailyProductive,
             backgroundColor: "#6366f1",
@@ -217,7 +217,7 @@ export default function DashboardPage() {
       <div className="flex-1 flex flex-col">
         {/* Header */}
         <header className="w-full flex items-center justify-between px-8 py-6 bg-white border-b border-gray-100">
-          <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4">
             <div className="relative">
               <FiSearch className="absolute left-3 top-2.5 text-gray-400" />
               <input
@@ -243,17 +243,17 @@ export default function DashboardPage() {
           {userIds.length > 0 && (
             <div className="mb-6">
               <label htmlFor="user-select" className="block mb-2 text-gray-700 font-semibold">Select User:</label>
-              <select
+          <select
                 id="user-select"
                 value={selectedUser}
                 onChange={e => setSelectedUser(e.target.value)}
                 className="p-2 border rounded w-full max-w-xs"
               >
                 {userIds.map(uid => (
-                  <option key={uid} value={uid}>{uid}</option>
-                ))}
-              </select>
-            </div>
+              <option key={uid} value={uid}>{uid}</option>
+            ))}
+          </select>
+        </div>
           )}
           {/* Filter Buttons */}
           <div className="mb-4 flex gap-4">
@@ -262,13 +262,13 @@ export default function DashboardPage() {
               onClick={() => setProductivityFilter("all")}
             >
               All Time
-            </button>
+              </button>
             <button
               className={`px-4 py-2 rounded-lg font-semibold border ${productivityFilter === "today" ? "bg-indigo-600 text-white" : "bg-white text-indigo-600 border-indigo-600"}`}
               onClick={() => setProductivityFilter("today")}
             >
               Today
-            </button>
+              </button>
           </div>
           {/* Stat Cards */}
           <div className="flex flex-col md:flex-row gap-6 mb-8">
@@ -310,8 +310,8 @@ export default function DashboardPage() {
                 <Bar
                   data={chartData}
                   options={{
-                    responsive: true,
-                    plugins: {
+                responsive: true,
+                plugins: {
                       legend: {
                         position: "top" as const,
                         labels: {
@@ -328,8 +328,8 @@ export default function DashboardPage() {
                         borderWidth: 1,
                         padding: 12,
                       },
-                    },
-                    scales: {
+                },
+                scales: {
                       x: {
                         grid: { display: false },
                         ticks: { color: "#181C2A", font: { size: 14 } },
@@ -420,7 +420,7 @@ export default function DashboardPage() {
             </div>
           </div>
         </main>
-      </div>
+        </div>
     </div>
   );
 } 
