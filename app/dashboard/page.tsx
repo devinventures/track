@@ -26,8 +26,8 @@ type ActivityLog = {
   end_time?: string;
   confidence?: number;
   created_at?: string;
-  features?: any;
-  motion_data?: any;
+  features?: unknown;
+  motion_data?: unknown;
 };
 
 type Stat = {
