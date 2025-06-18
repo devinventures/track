@@ -30,8 +30,16 @@ type ActivityLog = {
   motion_data?: any;
 };
 
+type Stat = {
+  label: string;
+  value: number;
+  color: string;
+  icon: string;
+  text: string;
+};
+
 export default function DashboardPage() {
-  const [stats, setStats] = useState([
+  const [stats, setStats] = useState<Stat[]>([
     { label: "Idle", value: 0, color: "bg-yellow-100", icon: "⏰", text: "Team total" },
     { label: "Productive", value: 0, color: "bg-indigo-100", icon: "✅", text: "Team total" },
   ]);
