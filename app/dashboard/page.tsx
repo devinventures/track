@@ -3,7 +3,6 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
-import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -13,6 +12,7 @@ import {
   Legend,
   ChartData,
 } from "chart.js";
+import { Bar } from "react-chartjs-2";
 import { FiBarChart2, FiUsers, FiFileText, FiSettings, FiHelpCircle, FiLogOut, FiTrendingUp, FiSearch } from "react-icons/fi";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);

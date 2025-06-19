@@ -1554,6 +1554,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/react-chartjs-2@npm:^2.5.7":
+  version: 2.5.7
+  resolution: "@types/react-chartjs-2@npm:2.5.7"
+  dependencies:
+    react-chartjs-2: "npm:*"
+  checksum: 10c0/5911993e48c25ebe23ddb8693f27b891c1191726884242c1ccc2d2ab4c3f1dcddb717e38a80cea1e57732f45ad85ac9d69dff1bf4d02681a92fdac9d3340bc8f
+  languageName: node
+  linkType: hard
+
 "@types/react-dom@npm:^19.1.6":
   version: 19.1.6
   resolution: "@types/react-dom@npm:19.1.6"
@@ -6103,7 +6112,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-chartjs-2@npm:^5.3.0":
+"react-chartjs-2@npm:*, react-chartjs-2@npm:^5.3.0":
   version: 5.3.0
   resolution: "react-chartjs-2@npm:5.3.0"
   peerDependencies:
@@ -7078,6 +7087,7 @@ __metadata:
     "@tailwindcss/postcss": "npm:^4"
     "@types/node": "npm:^20"
     "@types/react": "npm:^19.1.8"
+    "@types/react-chartjs-2": "npm:^2.5.7"
     "@types/react-dom": "npm:^19.1.6"
     chart.js: "npm:^4.5.0"
     eslint: "npm:^9"
