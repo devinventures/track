@@ -1,40 +1,44 @@
-name: Deploy Next.js site to GitHub Pages
+# Workflow to build and deploy a Next.js site to GitHub Pages
+name: Deploy Next.js to GitHub Pages
 
 on:
   push:
-    branches: ["main"]
-  workflow_dispatch:
+    branches: ["main"] # Trigger this workflow on pushes to the main branch
+  workflow_dispatch: # Allows you to run this manually
 
 permissions:
   contents: read
   pages: write
   id-token: write
 
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
+          # Important: Point to the lock file inside your project folder
           cache-dependency-path: trackv1-web/package-lock.json
-      - name: Install Dependencies
-        working-directory: ./trackv1-web
+
+      - name: Install dependencies
+        working-directory: ./trackv1-web # Run command in your project folder
         run: npm install
-      - name's Build Static Site
+
+      - name: Build static site
         working-directory: ./trackv1-web
-        run: npm run build
-      - name: Upload Artifact
+        # This command creates the static files in the 'out' directory
+        run: npm run build 
+
+      - name: Upload artifact for deployment
         uses: actions/upload-pages-artifact@v3
         with:
+          # This is the folder that gets deployed
           path: ./trackv1-web/out
 
   deploy:
