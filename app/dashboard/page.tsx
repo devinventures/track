@@ -13,7 +13,7 @@ import {
   ChartData,
 } from "chart.js";
 import { Bar } from "react-chartjs-2";
-import { FiBarChart2, FiUsers, FiFileText, FiSettings, FiHelpCircle, FiLogOut, FiTrendingUp, FiSearch } from "react-icons/fi";
+import { FiBarChart2, FiUsers, FiFileText, FiSettings, FiHelpCircle, FiLogOut, FiTrendingUp, FiSearch, FiBriefcase } from "react-icons/fi";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
@@ -194,7 +194,7 @@ export default function DashboardPage() {
           <span className="text-2xl font-extrabold text-white tracking-tight">Track v1</span>
         </div>
         <nav className="flex flex-col gap-2 flex-1">
-          <a href="#" className="flex items-center gap-3 text-white font-semibold bg-[#23263A] rounded-lg px-4 py-2">
+          <a href="/dashboard" className="flex items-center gap-3 text-white font-semibold bg-[#23263A] rounded-lg px-4 py-2">
             <FiBarChart2 /> Overview
           </a>
           <a href="#" className="flex items-center gap-3 text-gray-400 hover:text-white rounded-lg px-4 py-2">
@@ -211,6 +211,9 @@ export default function DashboardPage() {
           </a>
           <a href="#" className="flex items-center gap-3 text-gray-400 hover:text-white rounded-lg px-4 py-2">
             <FiSettings /> Settings
+          </a>
+          <a href="#" className="flex items-center gap-3 text-gray-400 hover:text-white rounded-lg px-4 py-2">
+            <FiBriefcase /> Company Config
           </a>
         </nav>
         <a href="#" className="flex items-center gap-3 text-gray-400 hover:text-white rounded-lg px-4 py-2 mt-8">
