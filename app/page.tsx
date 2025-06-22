@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "./lib/supabaseClient"; // Adjusted import path
+import { supabase } from "./lib/supabaseClient";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -9,14 +9,14 @@ import {
   BarElement,
   PointElement,
   LineElement,
-  TimeScale, // Added for the timeline chart
+  TimeScale,
   Tooltip,
   Legend,
   ChartData,
-  Filler, // Added for area fill
+  Filler,
 } from "chart.js";
 import { Bar, Line } from "react-chartjs-2";
-import 'chartjs-adapter-date-fns'; // Import the date adapter
+import 'chartjs-adapter-date-fns';
 
 ChartJS.register(
   CategoryScale,
@@ -53,6 +53,17 @@ type Stat = {
   suffix?: string;
 };
 
+// Define proper types for Chart.js context
+type ChartContext = {
+  chart: {
+    ctx: CanvasRenderingContext2D;
+    chartArea: {
+      top: number;
+      bottom: number;
+    } | null;
+  };
+};
+
 // Renamed from HomePage to DashboardPage
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stat[]>([
@@ -70,181 +81,235 @@ export default function DashboardPage() {
   const [selectedUser, setSelectedUser] = useState<string | undefined>(undefined);
   const [userIds, setUserIds] = useState<string[]>([]);
 
-  const timelineOptions: any = {
+  const timelineOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    scales: { x: { type: 'time', time: { unit: 'hour', tooltipFormat: 'h:mm a', displayFormats: { hour: 'h a' } }, grid: { display: false }, ticks: { color: '#9ca3af', maxRotation: 0, autoSkip: true } }, y: { beginAtZero: true, grid: { color: '#e5e7eb', drawBorder: false }, ticks: { color: '#9ca3af' }, title: { display: true, text: 'Cumulative Minutes', color: '#4b5563' } } },
-    plugins: { legend: { display: true, position: 'top', align: 'end', labels: { boxWidth: 12, usePointStyle: true } }, tooltip: { enabled: true, mode: 'index', intersect: false, backgroundColor: '#fff', titleColor: '#1f2937', bodyColor: '#4b5563', borderColor: '#e5e7eb', borderWidth: 1, padding: 12, titleFont: { weight: 'bold' } } },
-    elements: { point: { radius: 0, hoverRadius: 5, hitRadius: 20, hoverBorderWidth: 2 }, line: { tension: 0.4 } },
-    interaction: { mode: 'index', intersect: false },
+    scales: { 
+      x: { 
+        type: 'time' as const, 
+        time: { 
+          unit: 'hour' as const, 
+          tooltipFormat: 'h:mm a', 
+          displayFormats: { hour: 'h a' } 
+        }, 
+        grid: { display: false }, 
+        ticks: { color: '#9ca3af', maxRotation: 0, autoSkip: true } 
+      }, 
+      y: { 
+        beginAtZero: true, 
+        grid: { color: '#e5e7eb', drawBorder: false }, 
+        ticks: { color: '#9ca3af' }, 
+        title: { display: true, text: 'Cumulative Minutes', color: '#4b5563' } 
+      } 
+    },
+    plugins: { 
+      legend: { 
+        display: true, 
+        position: 'top' as const, 
+        align: 'end' as const, 
+        labels: { boxWidth: 12, usePointStyle: true } 
+      }, 
+      tooltip: { 
+        enabled: true, 
+        mode: 'index' as const, 
+        intersect: false, 
+        backgroundColor: '#fff', 
+        titleColor: '#1f2937', 
+        bodyColor: '#4b5563', 
+        borderColor: '#e5e7eb', 
+        borderWidth: 1, 
+        padding: 12, 
+        titleFont: { weight: 'bold' as const } 
+      } 
+    },
+    elements: { 
+      point: { radius: 0, hoverRadius: 5, hitRadius: 20, hoverBorderWidth: 2 }, 
+      line: { tension: 0.4 } 
+    },
+    interaction: { mode: 'index' as const, intersect: false },
   };
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
 
-      async function fetchAllActivityLogs() {
-        let allLogs: ActivityLog[] = [];
-        let offset = 0;
-        const BATCH_SIZE = 1000;
-        while (true) {
-          const { data, error } = await supabase.from("activity_logs").select("*").range(offset, offset + BATCH_SIZE - 1);
-          if (error) { console.error("Error fetching logs:", error); break; }
-          allLogs = [...allLogs, ...data];
-          if (data.length < BATCH_SIZE) break;
-          offset += BATCH_SIZE;
+      try {
+        async function fetchAllActivityLogs() {
+          let allLogs: ActivityLog[] = [];
+          let offset = 0;
+          const BATCH_SIZE = 1000;
+          while (true) {
+            const { data, error } = await supabase.from("activity_logs").select("*").range(offset, offset + BATCH_SIZE - 1);
+            if (error) { 
+              console.error("Error fetching logs:", error); 
+              break; 
+            }
+            if (!data || data.length === 0) break;
+            allLogs = [...allLogs, ...data];
+            if (data.length < BATCH_SIZE) break;
+            offset += BATCH_SIZE;
+          }
+          return allLogs;
         }
-        return allLogs;
-      }
 
-      const [ activityData, { data: configData } ] = await Promise.all([
-        fetchAllActivityLogs(),
-        supabase.from("company_config").select("user_id, hourly_wage")
-      ]);
-      
-      const sortedLogs = [...activityData].sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
-      setActivityLogs(sortedLogs.slice(0, 10));
-
-      const wageMap = new Map<string, number>(configData?.map(c => [c.user_id, c.hourly_wage]) || []);
-      type UserDayAgg = { [userId: string]: { productive: { [date: string]: number }; idle: { [date: string]: number }; }; };
-      const userDayAgg: UserDayAgg = {};
-
-      activityData.forEach(row => {
-        const user = String(row.user_id);
-        const day = row.start_time?.slice(0, 10);
-        const type = row.movement_type?.trim().toLowerCase();
-        if (!user || !day || !type) return;
-        if (!userDayAgg[user]) userDayAgg[user] = { productive: {}, idle: {} };
-        if (type === "productive" || type === "idle") {
-          userDayAgg[user][type][day] = (userDayAgg[user][type][day] || 0) + (Number(row.duration) || 0);
-        }
-      });
-
-      const ids = Object.keys(userDayAgg);
-      setUserIds(ids);
-      const currentSelectedUser = selectedUser || (ids.length > 0 ? ids[0] : undefined);
-      if (!selectedUser && currentSelectedUser) setSelectedUser(currentSelectedUser);
-      
-      let totalProductive = 0, totalIdle = 0, wastedSpend = 0;
-      let newBarChartData: ChartData<'bar'> = { datasets: [] };
-      let newTimelineData: ChartData<'line'> = { datasets: [] };
-      
-      if (currentSelectedUser && userDayAgg[currentSelectedUser]) {
-        const productiveObj = userDayAgg[currentSelectedUser].productive || {};
-        const idleObj = userDayAgg[currentSelectedUser].idle || {};
-        const allDates = Array.from(new Set([...Object.keys(productiveObj), ...Object.keys(idleObj)])).sort();
-
-        newBarChartData = {
-          labels: allDates.map(d => d.slice(5)),
-          datasets: [
-            { label: "Productive Time", data: allDates.map(day => (productiveObj[day] || 0) / 60), backgroundColor: "#6366f1", borderRadius: 8 },
-            { label: "Idle Time", data: allDates.map(day => (idleObj[day] || 0) / 60), backgroundColor: "#fbbf24", borderRadius: 8 },
-          ],
-        };
-
-        if (productivityFilter === 'all') {
-          totalProductive = Object.values(productiveObj).reduce((a, b) => a + b, 0);
-          totalIdle = Object.values(idleObj).reduce((a, b) => a + b, 0);
-        } else {
-          const today = new Date().toISOString().slice(0, 10);
-          totalProductive = productiveObj[today] || 0;
-          totalIdle = idleObj[today] || 0;
-        }
+        const [ activityData, { data: configData } ] = await Promise.all([
+          fetchAllActivityLogs(),
+          supabase.from("company_config").select("user_id, hourly_wage")
+        ]);
         
-        const hourlyWage = wageMap.get(currentSelectedUser) || 0;
-        wastedSpend = (totalIdle / 3600) * hourlyWage;
-        
-        const today = new Date().toISOString().slice(0, 10);
-        const todaysLogs = activityData.filter(
-          (row) => String(row.user_id) === currentSelectedUser && row.start_time?.slice(0, 10) === today
-        ).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+        const sortedLogs = [...activityData].sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
+        setActivityLogs(sortedLogs.slice(0, 10));
 
-        let earliestStart: string | null = null, latestEnd: string | null = null;
-        todaysLogs.forEach((row) => {
-          if (row.start_time && (!earliestStart || row.start_time < earliestStart)) earliestStart = row.start_time;
-          if (row.end_time && (!latestEnd || row.end_time > latestEnd)) latestEnd = row.end_time;
+        const wageMap = new Map<string, number>(configData?.map(c => [c.user_id, c.hourly_wage]) || []);
+        type UserDayAgg = { [userId: string]: { productive: { [date: string]: number }; idle: { [date: string]: number }; }; };
+        const userDayAgg: UserDayAgg = {};
+
+        activityData.forEach(row => {
+          const user = String(row.user_id);
+          const day = row.start_time?.slice(0, 10);
+          const type = row.movement_type?.trim().toLowerCase();
+          if (!user || !day || !type) return;
+          if (!userDayAgg[user]) userDayAgg[user] = { productive: {}, idle: {} };
+          if (type === "productive" || type === "idle") {
+            userDayAgg[user][type][day] = (userDayAgg[user][type][day] || 0) + (Number(row.duration) || 0);
+          }
         });
-        setCheckInTime(earliestStart ? new Date(earliestStart).toLocaleTimeString() : null);
-        setShiftEndTime(latestEnd ? new Date(latestEnd).toLocaleTimeString() : null);
+
+        const ids = Object.keys(userDayAgg);
+        setUserIds(ids);
         
-        let cumulativeProductive = 0, cumulativeIdle = 0;
-        const productiveTimeline: { x: number; y: number }[] = [];
-        const idleTimeline: { x: number; y: number }[] = [];
-        if (todaysLogs.length > 0) {
-          productiveTimeline.push({ x: new Date(todaysLogs[0].start_time).getTime(), y: 0 });
-          idleTimeline.push({ x: new Date(todaysLogs[0].start_time).getTime(), y: 0 });
-          todaysLogs.forEach(log => {
-            const endTime = new Date(log.end_time || log.start_time);
-            const durationMinutes = (log.duration || 0) / 60;
-            if (log.movement_type === 'productive') cumulativeProductive += durationMinutes;
-            else if (log.movement_type === 'idle') cumulativeIdle += durationMinutes;
-            productiveTimeline.push({ x: endTime.getTime(), y: cumulativeProductive });
-            idleTimeline.push({ x: endTime.getTime(), y: cumulativeIdle });
-          });
+        if (!selectedUser && ids.length > 0) {
+          setSelectedUser(ids[0]);
+          return;
         }
         
-        // Prepare timeline chart data
-        let newTimelineData = {};
-        if (productiveTimeline.length > 0 || idleTimeline.length > 0) {
-          newTimelineData = {
+        const currentSelectedUser = selectedUser || (ids.length > 0 ? ids[0] : undefined);
+        if (!currentSelectedUser) {
+          setLoading(false);
+          return;
+        }
+        
+        let totalProductive = 0, totalIdle = 0, wastedSpend = 0;
+        let newBarChartData: ChartData<'bar'> = { datasets: [] };
+        let newTimelineData: ChartData<'line'> = { datasets: [] };
+        
+        if (userDayAgg[currentSelectedUser]) {
+          const productiveObj = userDayAgg[currentSelectedUser].productive || {};
+          const idleObj = userDayAgg[currentSelectedUser].idle || {};
+          const allDates = Array.from(new Set([...Object.keys(productiveObj), ...Object.keys(idleObj)])).sort();
+
+          newBarChartData = {
+            labels: allDates.map(d => d.slice(5)),
             datasets: [
-              {
-                label: 'Productive',
-                data: productiveTimeline,
-                borderColor: '#6366f1',
-                pointHoverBackgroundColor: '#6366f1',
-                fill: true,
-                tension: 0.3,
-                pointRadius: 0,
-                backgroundColor: (context: any) => {
-                  const chart = context.chart;
-                  const { ctx, chartArea } = chart;
-                  if (!chartArea) {
-                    // This happens on the initial render, so return a fallback color
-                    return 'rgba(99, 102, 241, 0.2)';
-                  }
-                  const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
-                  gradient.addColorStop(0, 'rgba(99, 102, 241, 0)');
-                  gradient.addColorStop(1, 'rgba(99, 102, 241, 0.3)');
-                  return gradient;
-                },
-              },
-              {
-                label: 'Idle',
-                data: idleTimeline,
-                borderColor: '#fbbf24',
-                pointHoverBackgroundColor: '#fbbf24',
-                fill: true,
-                tension: 0.3,
-                pointRadius: 0,
-                backgroundColor: (context: any) => {
-                  const chart = context.chart;
-                  const { ctx, chartArea } = chart;
-                  if (!chartArea) {
-                    // This happens on the initial render, so return a fallback color
-                    return 'rgba(251, 191, 36, 0.2)';
-                  }
-                  const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
-                  gradient.addColorStop(0, 'rgba(251, 191, 36, 0)');
-                  gradient.addColorStop(1, 'rgba(251, 191, 36, 0.3)');
-                  return gradient;
-                },
-              },
+              { label: "Productive Time", data: allDates.map(day => (productiveObj[day] || 0) / 60), backgroundColor: "#6366f1", borderRadius: 8 },
+              { label: "Idle Time", data: allDates.map(day => (idleObj[day] || 0) / 60), backgroundColor: "#fbbf24", borderRadius: 8 },
             ],
           };
-        }
-      }
-      
-      setBarChartData(newBarChartData);
-      setTimelineChartData(newTimelineData);
-      setStats([
-        { label: "Productive", value: totalProductive / 3600, color: "bg-indigo-100", text: "Team total", suffix: 'h' },
-        { label: "Idle", value: totalIdle / 3600, color: "bg-yellow-100", text: "Team total", suffix: 'h' },
-        { label: "Wasted Spend", value: wastedSpend, color: "bg-red-100", text: "Cost of idle time", prefix: '$' },
-      ]);
 
-      setLoading(false);
+          if (productivityFilter === 'all') {
+            totalProductive = Object.values(productiveObj).reduce((a, b) => a + b, 0);
+            totalIdle = Object.values(idleObj).reduce((a, b) => a + b, 0);
+          } else {
+            const today = new Date().toISOString().slice(0, 10);
+            totalProductive = productiveObj[today] || 0;
+            totalIdle = idleObj[today] || 0;
+          }
+          
+          const hourlyWage = wageMap.get(currentSelectedUser) || 0;
+          wastedSpend = (totalIdle / 3600) * hourlyWage;
+          
+          const today = new Date().toISOString().slice(0, 10);
+          const todaysLogs = activityData.filter(
+            (row) => String(row.user_id) === currentSelectedUser && row.start_time?.slice(0, 10) === today
+          ).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+
+          let earliestStart: string | null = null, latestEnd: string | null = null;
+          todaysLogs.forEach((row) => {
+            if (row.start_time && (!earliestStart || row.start_time < earliestStart)) earliestStart = row.start_time;
+            if (row.end_time && (!latestEnd || row.end_time > latestEnd)) latestEnd = row.end_time;
+          });
+          setCheckInTime(earliestStart ? new Date(earliestStart).toLocaleTimeString() : null);
+          setShiftEndTime(latestEnd ? new Date(latestEnd).toLocaleTimeString() : null);
+          
+          let cumulativeProductive = 0, cumulativeIdle = 0;
+          const productiveTimeline: { x: number; y: number }[] = [];
+          const idleTimeline: { x: number; y: number }[] = [];
+          if (todaysLogs.length > 0) {
+            productiveTimeline.push({ x: new Date(todaysLogs[0].start_time).getTime(), y: 0 });
+            idleTimeline.push({ x: new Date(todaysLogs[0].start_time).getTime(), y: 0 });
+            todaysLogs.forEach(log => {
+              const endTime = new Date(log.end_time || log.start_time);
+              const durationMinutes = (log.duration || 0) / 60;
+              if (log.movement_type === 'productive') cumulativeProductive += durationMinutes;
+              else if (log.movement_type === 'idle') cumulativeIdle += durationMinutes;
+              productiveTimeline.push({ x: endTime.getTime(), y: cumulativeProductive });
+              idleTimeline.push({ x: endTime.getTime(), y: cumulativeIdle });
+            });
+          }
+          
+          if (productiveTimeline.length > 0 || idleTimeline.length > 0) {
+            newTimelineData = {
+              datasets: [
+                {
+                  label: 'Productive',
+                  data: productiveTimeline,
+                  borderColor: '#6366f1',
+                  pointHoverBackgroundColor: '#6366f1',
+                  fill: true,
+                  tension: 0.3,
+                  pointRadius: 0,
+                  backgroundColor: (context: ChartContext) => {
+                    const chart = context.chart;
+                    const { ctx, chartArea } = chart;
+                    if (!chartArea) {
+                      return 'rgba(99, 102, 241, 0.2)';
+                    }
+                    const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+                    gradient.addColorStop(0, 'rgba(99, 102, 241, 0)');
+                    gradient.addColorStop(1, 'rgba(99, 102, 241, 0.3)');
+                    return gradient;
+                  },
+                },
+                {
+                  label: 'Idle',
+                  data: idleTimeline,
+                  borderColor: '#fbbf24',
+                  pointHoverBackgroundColor: '#fbbf24',
+                  fill: true,
+                  tension: 0.3,
+                  pointRadius: 0,
+                  backgroundColor: (context: ChartContext) => {
+                    const chart = context.chart;
+                    const { ctx, chartArea } = chart;
+                    if (!chartArea) {
+                      return 'rgba(251, 191, 36, 0.2)';
+                    }
+                    const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+                    gradient.addColorStop(0, 'rgba(251, 191, 36, 0)');
+                    gradient.addColorStop(1, 'rgba(251, 191, 36, 0.3)');
+                    return gradient;
+                  },
+                },
+              ],
+            };
+          }
+        }
+        
+        setBarChartData(newBarChartData);
+        setTimelineChartData(newTimelineData);
+        setStats([
+          { label: "Productive", value: totalProductive / 3600, color: "bg-indigo-100", text: "Team total", suffix: 'h' },
+          { label: "Idle", value: totalIdle / 3600, color: "bg-yellow-100", text: "Team total", suffix: 'h' },
+          { label: "Wasted Spend", value: wastedSpend, color: "bg-red-100", text: "Cost of idle time", prefix: '$' },
+        ]);
+
+      } catch (error) {
+        console.error("Error in fetchData:", error);
+      } finally {
+        setLoading(false);
+      }
     }
+    
     fetchData();
   }, [selectedUser, productivityFilter]);
 
@@ -305,7 +370,7 @@ export default function DashboardPage() {
         </div>
       </div>
       <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100 mt-8">
-        <h2 className="text-2xl font-bold mb-6 text-gray-800">Today's Activity Timeline</h2>
+        <h2 className="text-2xl font-bold mb-6 text-gray-800">Today&apos;s Activity Timeline</h2>
         <div className="h-80 relative">
           {loading ? "[Loading Chart...]" : <Line data={timelineChartData} options={timelineOptions} />}
         </div>
