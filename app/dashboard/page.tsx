@@ -375,11 +375,12 @@ export default function DashboardPage() {
                       let motionIntensity = "N/A";
                       try {
                         if (log.features && typeof log.features === 'object') {
-                          const features = log.features as any;
-                          motionIntensity = features.motion_intensity ? 
-                            features.motion_intensity.toFixed(3) : "N/A";
+                          const features = log.features as Record<string, unknown>;
+                          const intensity = features.motion_intensity;
+                          motionIntensity = intensity && typeof intensity === 'number' ? 
+                            intensity.toFixed(3) : "N/A";
                         }
-                      } catch (e) {
+                      } catch {
                         motionIntensity = "N/A";
                       }
 
