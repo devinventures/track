@@ -88,26 +88,38 @@ export default function DashboardPage() {
       x: { 
         type: 'time' as const, 
         time: { 
-          unit: 'hour' as const, 
-          tooltipFormat: 'h:mm a', 
-          displayFormats: { hour: 'h a' } 
+          unit: 'minute' as const, 
+          tooltipFormat: 'h:mm:ss a', 
+          displayFormats: { 
+            minute: 'h:mm a',
+            hour: 'h:mm a'
+          } 
         }, 
-        grid: { display: false }, 
-        ticks: { color: '#9ca3af', maxRotation: 0, autoSkip: true } 
+        grid: { display: true, color: '#e5e7eb' }, 
+        ticks: { 
+          color: '#9ca3af', 
+          maxRotation: 45, 
+          autoSkip: true,
+          maxTicksLimit: 10
+        } 
       }, 
       y: { 
-        beginAtZero: true, 
+        beginAtZero: true,
+        max: 1,
         grid: { color: '#e5e7eb', drawBorder: false }, 
-        ticks: { color: '#9ca3af' }, 
-        title: { display: true, text: 'Cumulative Minutes', color: '#4b5563' } 
+        ticks: { 
+          color: '#9ca3af',
+          stepSize: 1,
+          callback: function(value: any) {
+            return value === 1 ? 'Productive' : value === 0 ? 'Idle' : '';
+          }
+        }, 
+        title: { display: true, text: 'Activity Status', color: '#4b5563' } 
       } 
     },
     plugins: { 
       legend: { 
-        display: true, 
-        position: 'top' as const, 
-        align: 'end' as const, 
-        labels: { boxWidth: 12, usePointStyle: true } 
+        display: false
       }, 
       tooltip: { 
         enabled: true, 
@@ -119,12 +131,18 @@ export default function DashboardPage() {
         borderColor: '#e5e7eb', 
         borderWidth: 1, 
         padding: 12, 
-        titleFont: { weight: 'bold' as const } 
+        titleFont: { weight: 'bold' as const },
+        callbacks: {
+          label: function(context: any) {
+            const point = context.raw;
+            return point.status === 'productive' ? 'Productive' : 'Idle';
+          }
+        }
       } 
     },
     elements: { 
-      point: { radius: 0, hoverRadius: 5, hitRadius: 20, hoverBorderWidth: 2 }, 
-      line: { tension: 0.4 } 
+      point: { radius: 2, hoverRadius: 4, hitRadius: 10 }, 
+      line: { tension: 0 } 
     },
     interaction: { mode: 'index' as const, intersect: false },
   };
@@ -158,7 +176,7 @@ export default function DashboardPage() {
         ]);
         
         const sortedLogs = [...activityData].sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
-        setActivityLogs(sortedLogs.slice(0, 10));
+        setActivityLogs(sortedLogs.slice(0, 5));
 
         const wageMap = new Map<string, number>(configData?.map(c => [c.user_id, c.hourly_wage]) || []);
         type UserDayAgg = { [userId: string]: { productive: { [date: string]: number }; idle: { [date: string]: number }; }; };
@@ -231,67 +249,90 @@ export default function DashboardPage() {
           setCheckInTime(earliestStart ? new Date(earliestStart).toLocaleTimeString() : null);
           setShiftEndTime(latestEnd ? new Date(latestEnd).toLocaleTimeString() : null);
           
-          let cumulativeProductive = 0, cumulativeIdle = 0;
-          const productiveTimeline: { x: number; y: number }[] = [];
-          const idleTimeline: { x: number; y: number }[] = [];
+          // Create a proper timeline with minute-by-minute activity
+          const timelineData: { x: number; y: number; status: string }[] = [];
           if (todaysLogs.length > 0) {
-            productiveTimeline.push({ x: new Date(todaysLogs[0].start_time).getTime(), y: 0 });
-            idleTimeline.push({ x: new Date(todaysLogs[0].start_time).getTime(), y: 0 });
-            todaysLogs.forEach(log => {
-              const endTime = new Date(log.end_time || log.start_time);
-              const durationMinutes = (log.duration || 0) / 60;
-              if (log.movement_type === 'productive') cumulativeProductive += durationMinutes;
-              else if (log.movement_type === 'idle') cumulativeIdle += durationMinutes;
-              productiveTimeline.push({ x: endTime.getTime(), y: cumulativeProductive });
-              idleTimeline.push({ x: endTime.getTime(), y: cumulativeIdle });
+            let startTime: Date, endTime: Date;
+            
+            if (earliestStart && latestEnd) {
+              startTime = new Date(earliestStart);
+              endTime = new Date(latestEnd);
+            } else {
+              // Fallback: use a full workday if we don't have proper start/end times
+              const today = new Date();
+              startTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 9, 0, 0); // 9 AM
+              endTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 17, 0, 0); // 5 PM
+            }
+            
+            // Ensure we have at least 2 hours of data for a meaningful timeline
+            const timeDiff = endTime.getTime() - startTime.getTime();
+            const minTimeSpan = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+            
+            if (timeDiff < minTimeSpan) {
+              // Extend the timeline to show at least 2 hours
+              const midTime = new Date(startTime.getTime() + timeDiff / 2);
+              startTime = new Date(midTime.getTime() - minTimeSpan / 2);
+              endTime = new Date(midTime.getTime() + minTimeSpan / 2);
+            }
+            
+            // Create minute-by-minute timeline
+            for (let time = new Date(startTime); time <= endTime; time.setMinutes(time.getMinutes() + 1)) {
+              let status = 'idle'; // default to idle
+              
+              // Check if user was productive during this minute
+              const activeLog = todaysLogs.find(log => {
+                const logStart = new Date(log.start_time);
+                const logEnd = new Date(log.end_time || new Date(log.start_time).getTime() + (log.duration * 1000));
+                return time >= logStart && time < logEnd;
+              });
+              
+              if (activeLog && activeLog.movement_type === 'productive') {
+                status = 'productive';
+              }
+              
+              timelineData.push({
+                x: time.getTime(),
+                y: status === 'productive' ? 1 : 0,
+                status: status
+              });
+            }
+            
+            console.log('Timeline data:', {
+              startTime: startTime.toLocaleString(),
+              endTime: endTime.toLocaleString(),
+              dataPoints: timelineData.length,
+              productiveCount: timelineData.filter(p => p.status === 'productive').length,
+              idleCount: timelineData.filter(p => p.status === 'idle').length
             });
           }
           
-          if (productiveTimeline.length > 0 || idleTimeline.length > 0) {
+          if (timelineData.length > 0) {
             newTimelineData = {
               datasets: [
                 {
-                  label: 'Productive',
-                  data: productiveTimeline,
+                  label: 'Activity Status',
+                  data: timelineData,
                   borderColor: '#6366f1',
-                  pointHoverBackgroundColor: '#6366f1',
-                  fill: true,
-                  tension: 0.3,
-                  pointRadius: 0,
-                  backgroundColor: (context: ChartContext) => {
-                    const chart = context.chart;
-                    const { ctx, chartArea } = chart;
-                    if (!chartArea) {
-                      return 'rgba(99, 102, 241, 0.2)';
-                    }
-                    const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
-                    gradient.addColorStop(0, 'rgba(99, 102, 241, 0)');
-                    gradient.addColorStop(1, 'rgba(99, 102, 241, 0.3)');
-                    return gradient;
-                  },
-                },
-                {
-                  label: 'Idle',
-                  data: idleTimeline,
-                  borderColor: '#fbbf24',
-                  pointHoverBackgroundColor: '#fbbf24',
-                  fill: true,
-                  tension: 0.3,
-                  pointRadius: 0,
-                  backgroundColor: (context: ChartContext) => {
-                    const chart = context.chart;
-                    const { ctx, chartArea } = chart;
-                    if (!chartArea) {
-                      return 'rgba(251, 191, 36, 0.2)';
-                    }
-                    const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
-                    gradient.addColorStop(0, 'rgba(251, 191, 36, 0)');
-                    gradient.addColorStop(1, 'rgba(251, 191, 36, 0.3)');
-                    return gradient;
-                  },
+                  backgroundColor: timelineData.map(point => 
+                    point.status === 'productive' ? '#6366f1' : '#fbbf24'
+                  ),
+                  pointBackgroundColor: timelineData.map(point => 
+                    point.status === 'productive' ? '#6366f1' : '#fbbf24'
+                  ),
+                  pointBorderColor: timelineData.map(point => 
+                    point.status === 'productive' ? '#6366f1' : '#fbbf24'
+                  ),
+                  pointRadius: 1,
+                  pointHoverRadius: 4,
+                  fill: false,
+                  tension: 0,
+                  stepped: 'before',
+                  borderWidth: 3,
                 },
               ],
             };
+          } else {
+            console.log('No timeline data generated');
           }
         }
         
@@ -358,15 +399,28 @@ export default function DashboardPage() {
           </div>
         ))}
       </div>
-      <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100 mt-8 flex flex-col md:flex-row gap-8 items-center justify-center">
-        <div className="flex flex-col items-center">
-          <span className="text-gray-500 font-semibold mb-1">Check In Time</span>
-          <span className="text-2xl font-bold text-indigo-600">{checkInTime || "--"}</span>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="rounded-2xl shadow-lg p-8 flex flex-col items-start bg-green-100 border border-gray-100">
+          <span className="text-gray-700 font-bold text-lg mb-2">% Time Productive</span>
+          <span className="text-4xl font-extrabold mt-1 text-gray-900">
+            {(() => {
+              const totalTime = stats[0].value + stats[1].value;
+              const productivePercentage = totalTime > 0 ? (stats[0].value / totalTime) * 100 : 0;
+              return `${productivePercentage.toFixed(1)}%`;
+            })()}
+          </span>
+          <span className="mt-2 text-base text-gray-500">Of total work time</span>
         </div>
-        <div className="w-px h-10 bg-gray-200 mx-8 hidden md:block"></div>
-        <div className="flex flex-col items-center">
-          <span className="text-gray-500 font-semibold mb-1">Shift End Time</span>
-          <span className="text-2xl font-bold text-indigo-600">{shiftEndTime || "--"}</span>
+        <div className="rounded-2xl shadow-lg p-8 flex flex-col items-start bg-yellow-100 border border-gray-100">
+          <span className="text-gray-700 font-bold text-lg mb-2">% Time Idle</span>
+          <span className="text-4xl font-extrabold mt-1 text-gray-900">
+            {(() => {
+              const totalTime = stats[0].value + stats[1].value;
+              const idlePercentage = totalTime > 0 ? (stats[1].value / totalTime) * 100 : 0;
+              return `${idlePercentage.toFixed(1)}%`;
+            })()}
+          </span>
+          <span className="mt-2 text-base text-gray-500">Of total work time</span>
         </div>
       </div>
       <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100 mt-8">
@@ -381,43 +435,110 @@ export default function DashboardPage() {
           {loading ? "[Loading Chart...]" : <Bar data={barChartData} options={{ responsive: true, plugins: { legend: { position: "top" as const } }, scales: { y: { title: { display: true, text: "Minutes" } } } }} />}
         </div>
       </div>
-      <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100 mt-8">
-        <h2 className="text-2xl font-bold mb-6 text-gray-800">Recent Activity</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead>
-              <tr className="text-gray-500 border-b">
-                <th className="py-2 px-3">ID</th>
-                <th className="py-2 px-3">User</th>
-                <th className="py-2 px-3">Movement</th>
-                <th className="py-2 px-3">Start</th>
-                <th className="py-2 px-3">End</th>
-                <th className="py-2 px-3">Duration (s)</th>
-                <th className="py-2 px-3">Confidence</th>
-                <th className="py-2 px-3">Created</th>
-                <th className="py-2 px-3">Features</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activityLogs.map((log) => (
-                <tr key={log.id} className="border-b hover:bg-gray-100">
-                  <td className="py-2 px-3">{log.id?.slice(0, 8)}</td>
-                  <td className="py-2 px-3">{log.user_id}</td>
-                  <td className="py-2 px-3">{log.movement_type}</td>
-                  <td className="py-2 px-3">{log.start_time ? new Date(log.start_time).toLocaleString() : ""}</td>
-                  <td className="py-2 px-3">{log.end_time ? new Date(log.end_time).toLocaleString() : ""}</td>
-                  <td className="py-2 px-3">{log.duration}</td>
-                  <td className="py-2 px-3">{log.confidence}</td>
-                  <td className="py-2 px-3">{log.created_at ? new Date(log.created_at).toLocaleDateString() : ""}</td>
-                  <td className="py-2 px-3 text-xs">
-                    {log.features ? JSON.stringify(log.features) : ""}
-                  </td>
+      <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 mt-8">
+        <h2 className="text-xl font-bold mb-4 text-gray-800">Today's Check-ins & Check-outs</h2>
+        <div className="overflow-hidden">
+          <div className="overflow-x-auto max-w-full">
+            <table className="w-full text-left text-xs table-fixed">
+              <thead>
+                <tr className="text-gray-500 border-b">
+                  <th className="py-1 px-2 w-1/2">Time</th>
+                  <th className="py-1 px-2 w-1/2">Duration</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {(() => {
+                  const today = new Date().toISOString().slice(0, 10);
+                  const todaysLogs = activityLogs.filter(
+                    (row) => String(row.user_id) === selectedUser && row.start_time?.slice(0, 10) === today
+                  ).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+
+                  if (todaysLogs.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={2} className="py-4 px-2 text-center text-gray-500">
+                          No activity recorded today
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  return todaysLogs.map((log, index) => (
+                    <tr key={log.id} className="border-b last:border-0 hover:bg-gray-50">
+                      <td className="py-1 px-2 text-gray-600">
+                        {log.start_time ? new Date(log.start_time).toLocaleTimeString() : ""}
+                        {log.end_time && (
+                          <span className="text-gray-400 ml-1">
+                            → {new Date(log.end_time).toLocaleTimeString()}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-1 px-2 text-gray-600">
+                        {log.duration}s
+                      </td>
+                    </tr>
+                  ));
+                })()}
+              </tbody>
+            </table>
+          </div>
         </div>
-    </div>
+      </div>
+      <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 mt-8">
+        <h2 className="text-xl font-bold mb-4 text-gray-800">Recent Activity</h2>
+        <div className="overflow-hidden">
+          <div className="overflow-x-auto max-w-full">
+            <table className="w-full text-left text-xs table-fixed">
+              <thead>
+                <tr className="text-gray-500 border-b">
+                  <th className="py-1 px-2 w-1/4">Type</th>
+                  <th className="py-1 px-2 w-1/4">Start</th>
+                  <th className="py-1 px-2 w-1/4">Duration</th>
+                  <th className="py-1 px-2 w-1/4">Intensity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activityLogs.map((log) => {
+                  // Parse features to get motion intensity
+                  let motionIntensity = "N/A";
+                  try {
+                    if (log.features && typeof log.features === 'object') {
+                      const features = log.features as any;
+                      motionIntensity = features.motion_intensity ? 
+                        features.motion_intensity.toFixed(3) : "N/A";
+                    }
+                  } catch (e) {
+                    motionIntensity = "N/A";
+                  }
+
+                  return (
+                    <tr key={log.id} className="border-b last:border-0 hover:bg-gray-50">
+                      <td className="py-1 px-2">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          log.movement_type?.toLowerCase() === 'productive' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {log.movement_type}
+                        </span>
+                      </td>
+                      <td className="py-1 px-2 text-gray-600 truncate">
+                        {log.start_time ? new Date(log.start_time).toLocaleTimeString() : ""}
+                      </td>
+                      <td className="py-1 px-2 text-gray-600">
+                        {log.duration}s
+                      </td>
+                      <td className="py-1 px-2 text-gray-600">
+                        {motionIntensity}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </>
   );
 }

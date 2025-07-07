@@ -102,7 +102,7 @@ export default function RootLayout({
 
             {/* Page content */}
             <main className="flex-1 p-8 bg-gray-50">
-              {children}
+        {children}
             </main>
           </div>
         </div>

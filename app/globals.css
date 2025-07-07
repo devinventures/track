@@ -26,3 +26,22 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Prevent table overflow issues */
+table {
+  table-layout: fixed;
+  width: 100%;
+  max-width: 100%;
+}
+
+td, th {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Ensure table containers don't cause horizontal scroll */
+.overflow-x-auto {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}

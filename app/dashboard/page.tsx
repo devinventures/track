@@ -180,7 +180,7 @@ export default function DashboardPage() {
         .from("activity_logs")
         .select("*")
         .order("start_time", { ascending: false })
-        .limit(10);
+        .limit(5);
       if (data) setActivityLogs(data);
     }
     fetchActivityLogs();
@@ -297,21 +297,21 @@ export default function DashboardPage() {
             ))}
           </div>
           {/* Check In and Shift End Time Section (moved below chart) */}
-          <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100 mt-8 flex flex-col md:flex-row gap-8 items-center justify-center">
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 mt-8 flex flex-col md:flex-row gap-6 items-center justify-center">
             <div className="flex flex-col items-center">
-              <span className="text-gray-500 font-semibold mb-1">Check In Time</span>
-              <span className="text-2xl font-bold text-indigo-600">{checkInTime || "--"}</span>
+              <span className="text-gray-500 font-semibold mb-1 text-sm">Check In Time</span>
+              <span className="text-xl font-bold text-indigo-600">{checkInTime || "--"}</span>
             </div>
-            <div className="w-px h-10 bg-gray-200 mx-8 hidden md:block"></div>
+            <div className="w-px h-8 bg-gray-200 mx-4 hidden md:block"></div>
             <div className="flex flex-col items-center">
-              <span className="text-gray-500 font-semibold mb-1">Shift End Time</span>
-              <span className="text-2xl font-bold text-indigo-600">{shiftEndTime || "--"}</span>
+              <span className="text-gray-500 font-semibold mb-1 text-sm">Shift End Time</span>
+              <span className="text-xl font-bold text-indigo-600">{shiftEndTime || "--"}</span>
             </div>
           </div>
           {/* Productive vs Idle Time Chart */}
-          <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100 mt-8">
-            <h2 className="text-2xl font-bold mb-6 text-gray-800">Productive vs Idle Time</h2>
-            <div className="h-80 flex items-center justify-center text-gray-400">
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 mt-8">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">Productive vs Idle Time</h2>
+            <div className="h-64 flex items-center justify-center text-gray-400">
               {loading || !chartData || !chartData.datasets ? (
                 "[Loading Chart...]"
               ) : (
@@ -319,13 +319,14 @@ export default function DashboardPage() {
                   data={chartData}
                   options={{
                     responsive: true,
+                    maintainAspectRatio: false,
                     plugins: {
                       legend: {
                         position: "top" as const,
                         labels: {
                           color: "#181C2A",
-                          font: { size: 16, weight: "bold" },
-                          boxWidth: 20,
+                          font: { size: 14, weight: "bold" },
+                          boxWidth: 16,
                         },
                       },
                       tooltip: {
@@ -334,19 +335,19 @@ export default function DashboardPage() {
                         bodyColor: "#181C2A",
                         borderColor: "#6366f1",
                         borderWidth: 1,
-                        padding: 12,
+                        padding: 10,
                       },
                     },
                     scales: {
                       x: {
                         grid: { display: false },
-                        ticks: { color: "#181C2A", font: { size: 14 } },
+                        ticks: { color: "#181C2A", font: { size: 12 } },
                       },
                       y: {
                         beginAtZero: true,
-                        title: { display: true, text: "Minutes", color: "#181C2A", font: { size: 16 } },
+                        title: { display: true, text: "Minutes", color: "#181C2A", font: { size: 14 } },
                         grid: { color: "#e5e7eb" },
-                        ticks: { color: "#181C2A", font: { size: 14 } },
+                        ticks: { color: "#181C2A", font: { size: 12 } },
                       },
                     },
                   }}
@@ -355,39 +356,59 @@ export default function DashboardPage() {
             </div>
           </div>
           {/* Recent Activity */}
-          <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100 mt-8">
-            <h2 className="text-2xl font-bold mb-6 text-gray-800">Recent Activity</h2>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead>
-                  <tr className="text-gray-500 border-b">
-                    <th className="py-2 px-3">ID</th>
-                    <th className="py-2 px-3">User</th>
-                    <th className="py-2 px-3">Movement</th>
-                    <th className="py-2 px-3">Start</th>
-                    <th className="py-2 px-3">End</th>
-                    <th className="py-2 px-3">Duration (s)</th>
-                    <th className="py-2 px-3">Confidence</th>
-                    <th className="py-2 px-3">Created</th>
-                    <th className="py-2 px-3">Features</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {activityLogs.map((log) => (
-                    <tr key={log.id} className="border-b last:border-0">
-                      <td className="py-2 px-3">{log.id}</td>
-                      <td className="py-2 px-3">{log.user_id}</td>
-                      <td className="py-2 px-3">{log.movement_type}</td>
-                      <td className="py-2 px-3">{log.start_time ? new Date(log.start_time).toLocaleString() : ""}</td>
-                      <td className="py-2 px-3">{log.end_time ? new Date(log.end_time).toLocaleString() : ""}</td>
-                      <td className="py-2 px-3">{log.duration}</td>
-                      <td className="py-2 px-3">{log.confidence}</td>
-                      <td className="py-2 px-3">{log.created_at ? new Date(log.created_at).toLocaleString() : ""}</td>
-                      <td className="py-2 px-3 truncate max-w-xs">{log.features || log.motion_data ? JSON.stringify(log.features || log.motion_data).slice(0, 30) + "..." : ""}</td>
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 mt-8">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">Recent Activity</h2>
+            <div className="overflow-hidden">
+              <div className="overflow-x-auto max-w-full">
+                <table className="w-full text-left text-xs table-fixed">
+                  <thead>
+                    <tr className="text-gray-500 border-b">
+                      <th className="py-1 px-2 w-1/4">Type</th>
+                      <th className="py-1 px-2 w-1/4">Start</th>
+                      <th className="py-1 px-2 w-1/4">Duration</th>
+                      <th className="py-1 px-2 w-1/4">Intensity</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {activityLogs.map((log) => {
+                      // Parse features to get motion intensity
+                      let motionIntensity = "N/A";
+                      try {
+                        if (log.features && typeof log.features === 'object') {
+                          const features = log.features as any;
+                          motionIntensity = features.motion_intensity ? 
+                            features.motion_intensity.toFixed(3) : "N/A";
+                        }
+                      } catch (e) {
+                        motionIntensity = "N/A";
+                      }
+
+                      return (
+                        <tr key={log.id} className="border-b last:border-0 hover:bg-gray-50">
+                          <td className="py-1 px-2">
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                              log.movement_type?.toLowerCase() === 'productive' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {log.movement_type}
+                            </span>
+                          </td>
+                          <td className="py-1 px-2 text-gray-600 truncate">
+                            {log.start_time ? new Date(log.start_time).toLocaleTimeString() : ""}
+                          </td>
+                          <td className="py-1 px-2 text-gray-600">
+                            {log.duration}s
+                          </td>
+                          <td className="py-1 px-2 text-gray-600">
+                            {motionIntensity}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </main>
