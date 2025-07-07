@@ -53,16 +53,16 @@ type Stat = {
   suffix?: string;
 };
 
-// Define proper types for Chart.js context
-type ChartContext = {
-  chart: {
-    ctx: CanvasRenderingContext2D;
-    chartArea: {
-      top: number;
-      bottom: number;
-    } | null;
-  };
-};
+// Chart.js context type (unused but kept for reference)
+// type ChartContext = {
+//   chart: {
+//     ctx: CanvasRenderingContext2D;
+//     chartArea: {
+//       top: number;
+//       bottom: number;
+//     } | null;
+//   };
+// };
 
 // Renamed from HomePage to DashboardPage
 export default function DashboardPage() {
@@ -76,8 +76,8 @@ export default function DashboardPage() {
   const [barChartData, setBarChartData] = useState<ChartData<'bar'>>({ datasets: [] });
   const [timelineChartData, setTimelineChartData] = useState<ChartData<'line'>>({ datasets: [] });
   const [productivityFilter, setProductivityFilter] = useState<"all" | "today">("today");
-  const [checkInTime, setCheckInTime] = useState<string | null>(null);
-  const [shiftEndTime, setShiftEndTime] = useState<string | null>(null);
+  // const [checkInTime, setCheckInTime] = useState<string | null>(null);
+  // const [shiftEndTime, setShiftEndTime] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<string | undefined>(undefined);
   const [userIds, setUserIds] = useState<string[]>([]);
 
@@ -110,7 +110,8 @@ export default function DashboardPage() {
         ticks: { 
           color: '#9ca3af',
           stepSize: 1,
-          callback: function(value: any) {
+          callback: function(tickValue: string | number) {
+            const value = typeof tickValue === 'number' ? tickValue : parseFloat(tickValue);
             return value === 1 ? 'Productive' : value === 0 ? 'Idle' : '';
           }
         }, 
@@ -133,8 +134,9 @@ export default function DashboardPage() {
         padding: 12, 
         titleFont: { weight: 'bold' as const },
         callbacks: {
-          label: function(context: any) {
-            const point = context.raw;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          label: function(tooltipItem: any) {
+            const point = tooltipItem.raw;
             return point.status === 'productive' ? 'Productive' : 'Idle';
           }
         }
@@ -246,8 +248,8 @@ export default function DashboardPage() {
             if (row.start_time && (!earliestStart || row.start_time < earliestStart)) earliestStart = row.start_time;
             if (row.end_time && (!latestEnd || row.end_time > latestEnd)) latestEnd = row.end_time;
           });
-          setCheckInTime(earliestStart ? new Date(earliestStart).toLocaleTimeString() : null);
-          setShiftEndTime(latestEnd ? new Date(latestEnd).toLocaleTimeString() : null);
+          // setCheckInTime(earliestStart ? new Date(earliestStart).toLocaleTimeString() : null);
+          // setShiftEndTime(latestEnd ? new Date(latestEnd).toLocaleTimeString() : null);
           
           // Create a proper timeline with minute-by-minute activity
           const timelineData: { x: number; y: number; status: string }[] = [];
@@ -436,7 +438,7 @@ export default function DashboardPage() {
         </div>
       </div>
       <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 mt-8">
-        <h2 className="text-xl font-bold mb-4 text-gray-800">Today's Check-ins & Check-outs</h2>
+        <h2 className="text-xl font-bold mb-4 text-gray-800">Today&apos;s Check-ins & Check-outs</h2>
         <div className="overflow-hidden">
           <div className="overflow-x-auto max-w-full">
             <table className="w-full text-left text-xs table-fixed">
@@ -463,7 +465,7 @@ export default function DashboardPage() {
                     );
                   }
 
-                  return todaysLogs.map((log, index) => (
+                  return todaysLogs.map((log) => (
                     <tr key={log.id} className="border-b last:border-0 hover:bg-gray-50">
                       <td className="py-1 px-2 text-gray-600">
                         {log.start_time ? new Date(log.start_time).toLocaleTimeString() : ""}
@@ -503,11 +505,12 @@ export default function DashboardPage() {
                   let motionIntensity = "N/A";
                   try {
                     if (log.features && typeof log.features === 'object') {
-                      const features = log.features as any;
-                      motionIntensity = features.motion_intensity ? 
-                        features.motion_intensity.toFixed(3) : "N/A";
+                      const features = log.features as Record<string, unknown>;
+                      const intensity = features.motion_intensity;
+                      motionIntensity = intensity && typeof intensity === 'number' ? 
+                        intensity.toFixed(3) : "N/A";
                     }
-                  } catch (e) {
+                  } catch {
                     motionIntensity = "N/A";
                   }
 
